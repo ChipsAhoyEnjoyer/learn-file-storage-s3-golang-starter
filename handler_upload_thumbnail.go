@@ -4,11 +4,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -50,9 +48,15 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	mediaType := header.Header.Get("Content-Type")
-	if mediaType == "" {
+	mediaTypeStr := header.Header.Get("Content-Type")
+	if mediaTypeStr == "" {
 		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
+		return
+	}
+
+	mediaType, _, err := mime.ParseMediaType(mediaTypeStr)
+	if (err != nil) || (mediaType != "image/png" && mediaType != "image/jpeg") {
+		respondWithError(w, http.StatusBadRequest, "Malformed/incorrect media type", err)
 		return
 	}
 
@@ -67,18 +71,22 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	path, err := createThumbnailPath(mediaType, videoIDString, cfg.assetsRoot)
+	ext, err := getAssetExtension(mediaType)
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		respondWithError(w, http.StatusBadRequest, "Incorrect media type", err)
 		return
 	}
+	filename := getAssetName(videoID, ext)
+	url := getAssetURL(
+		filename,
+		cfg.port,
+	)
 
-	if err = createThumbnailFile(path, data); err != nil {
+	if err = createThumbnailFile(cfg.assetsRoot, filename, data); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Error uploading thumbnail", err)
 		return
 	}
-
-	video.ThumbnailURL = &path
+	video.ThumbnailURL = &url
 
 	if err = cfg.db.UpdateVideo(video); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to update video", err)
@@ -88,30 +96,15 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	respondWithJSON(w, http.StatusOK, video)
 }
 
-func createThumbnailPath(mediaType, videoID, destination string) (filePath string, err error) {
-	i := strings.Split(mediaType, "/")
-	fileType := i[0]
-	fileExt := i[1]
-	if fileType != "image" {
-		return "", fmt.Errorf("incorrect media type; file not image")
-	}
-	thumnail_name := videoID + "." + fileExt
-	path := filepath.Join(destination, thumnail_name)
-	log.Println(fileExt)
-	log.Println(videoID)
-
-	return path, nil
-}
-
-func createThumbnailFile(path string, data []byte) error {
+func createThumbnailFile(assetsRoot, filename string, data []byte) error {
+	path := getAssetPath(filename, assetsRoot)
 	f, err := os.Create(path)
 	if err != nil {
-
+		return err
 	}
 	thumbnail := bytes.NewReader(data)
 	if _, err := io.Copy(f, thumbnail); err != nil {
 		return err
 	}
 	return nil
-
 }
