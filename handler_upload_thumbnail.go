@@ -1,10 +1,14 @@
 package main
 
 import (
-	"encoding/base64"
+	"bytes"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -41,21 +45,17 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	defer file.Close()
-
 	data, err := io.ReadAll(file)
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to read image", err)
 		return
 	}
 
-	base64data := base64.StdEncoding.EncodeToString(data)
 	mediaType := header.Header.Get("Content-Type")
 	if mediaType == "" {
 		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
 		return
 	}
-
-	dataURL := fmt.Sprintf("data:%v;base64,%v", mediaType, base64data)
 
 	video, err := cfg.db.GetVideo(videoID)
 	if err != nil {
@@ -68,7 +68,18 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	video.ThumbnailURL = &dataURL
+	path, err := createThumbnailPath(mediaType, videoIDString, cfg.assetsRoot)
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, err.Error(), nil)
+		return
+	}
+
+	if err = createThumbnailFile(path, data); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error uploading thumbnail", err)
+		return
+	}
+
+	video.ThumbnailURL = &path
 
 	if err = cfg.db.UpdateVideo(video); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to update video", err)
@@ -76,4 +87,32 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	}
 
 	respondWithJSON(w, http.StatusOK, video)
+}
+
+func createThumbnailPath(mediaType, videoID, destination string) (filePath string, err error) {
+	i := strings.Split(mediaType, "/")
+	fileType := i[0]
+	fileExt := i[1]
+	if fileType != "image" {
+		return "", fmt.Errorf("incorrect media type; file not image")
+	}
+	thumnail_name := videoID + "." + fileExt
+	path := filepath.Join(destination, thumnail_name)
+	log.Println(fileExt)
+	log.Println(videoID)
+
+	return path, nil
+}
+
+func createThumbnailFile(path string, data []byte) error {
+	f, err := os.Create(path)
+	if err != nil {
+
+	}
+	thumbnail := bytes.NewReader(data)
+	if _, err := io.Copy(f, thumbnail); err != nil {
+		return err
+	}
+	return nil
+
 }

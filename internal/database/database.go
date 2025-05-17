@@ -87,3 +87,10 @@ func (c Client) Reset() error {
 	}
 	return nil
 }
+
+func (c Client) ResetVideos() error {
+	if _, err := c.db.Exec("DELETE FROM videos"); err != nil {
+		return fmt.Errorf("failed to reset table videos: %w", err)
+	}
+	return nil
+}
