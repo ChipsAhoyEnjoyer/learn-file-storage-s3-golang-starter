@@ -1,11 +1,10 @@
 package main
 
 import (
-	"database/sql"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/google/uuid"
@@ -36,7 +35,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 	// TODO: implement the upload here
 	const maxMemory = 10 << 20
 	r.ParseMultipartForm(maxMemory)
-	file, header, err := r.FormFile("thumbnail") // Ask about thumbnail
+	file, header, err := r.FormFile("thumbnail")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Unable to parse form file", err)
 		return
@@ -49,18 +48,17 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	base64data := base64.StdEncoding.EncodeToString(data)
 	mediaType := header.Header.Get("Content-Type")
 	if mediaType == "" {
 		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
 		return
 	}
 
+	dataURL := fmt.Sprintf("data:%v;base64,%v", mediaType, base64data)
+
 	video, err := cfg.db.GetVideo(videoID)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			respondWithError(w, http.StatusNotFound, "Video not found", err)
-			return
-		}
 		respondWithError(w, http.StatusInternalServerError, "Unable to fetch video data", err)
 		return
 	}
@@ -69,12 +67,8 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusUnauthorized, "Unauthorized user", nil)
 		return
 	}
-	videoThumbnails[videoID] = thumbnail{
-		data:      data,
-		mediaType: mediaType,
-	}
-	thumbnailURL := fmt.Sprintf("http://localhost:%v/api/thumbnails/%v", os.Getenv("PORT"), videoIDString)
-	video.ThumbnailURL = &thumbnailURL
+
+	video.ThumbnailURL = &dataURL
 
 	if err = cfg.db.UpdateVideo(video); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to update video", err)
