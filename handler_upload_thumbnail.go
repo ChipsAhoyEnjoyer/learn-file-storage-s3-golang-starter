@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"fmt"
 	"io"
 	"mime"
@@ -76,7 +78,14 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "Incorrect media type", err)
 		return
 	}
-	filename := getAssetName(videoID, ext)
+
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Error generating random bytes", err)
+		return
+	}
+
+	filename := base64.RawURLEncoding.EncodeToString(b) + "." + ext
 	url := getAssetURL(
 		filename,
 		cfg.port,
