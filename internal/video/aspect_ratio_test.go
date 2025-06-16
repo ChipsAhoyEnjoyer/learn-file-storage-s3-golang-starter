@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-func Test_getVideoAspectRatio(t *testing.T) {
+func Test_GetVideoAspectRatio(t *testing.T) {
 	type args struct {
 		filePath string
 	}
@@ -41,7 +41,7 @@ func Test_getVideoAspectRatio(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := getVideoAspectRatio(tt.args.filePath)
+			got, err := GetVideoAspectRatio(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("getVideoAspectRatio() error = %v, wantErr %v", err, tt.wantErr)
 				return

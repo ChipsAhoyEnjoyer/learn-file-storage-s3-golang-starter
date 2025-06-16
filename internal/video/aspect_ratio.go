@@ -4,18 +4,16 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"math"
 	"os/exec"
 )
 
-func getVideoAspectRatio(filePath string) (string, error) {
+func GetVideoAspectRatio(filePath string) (string, error) {
 	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
 	var out bytes.Buffer
 	var e bytes.Buffer
 	cmd.Stdout = &out
 	cmd.Stderr = &e
-	log.Println(cmd.String())
 	if err := cmd.Run(); err != nil {
 		return "", fmt.Errorf("ffprobe error: %v - std err: %v", err, e.String())
 	}

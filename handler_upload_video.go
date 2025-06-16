@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
+	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/video"
 	"github.com/google/uuid"
 )
 
@@ -36,7 +37,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	const maxMemory = 1 << 30 // 1 GB limit
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxMemory))
 
-	video, err := cfg.db.GetVideo(videoID)
+	videoDetails, err := cfg.db.GetVideo(videoID)
 	if err != nil {
 		errCode := http.StatusInternalServerError
 		if err == sql.ErrNoRows {
@@ -45,7 +46,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, errCode, "Unable to retrieve video", err)
 		return
 	}
-	if video.UserID != userID {
+	if videoDetails.UserID != userID {
 		respondWithError(w, http.StatusUnauthorized, "User not authorized to upload to this video", nil)
 		return
 	}
@@ -94,7 +95,22 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Error generating random bytes", err)
 		return
 	}
-	fileKey := base64.RawURLEncoding.EncodeToString(b) + "." + ext
+	ratio, err := video.GetVideoAspectRatio(temp.Name())
+	if err != nil {
+		respondWithError(w, http.StatusBadRequest, "Unable to get video aspect ratio", err)
+		return
+	}
+	fileKeyPrefix := ""
+	switch ratio {
+	case "16:9":
+		fileKeyPrefix = "landscape"
+	case "9:16":
+		fileKeyPrefix = "portrait"
+	default:
+		fileKeyPrefix = "other"
+	}
+
+	fileKey := fileKeyPrefix + "/" + base64.RawURLEncoding.EncodeToString(b) + "." + ext
 
 	_, err = cfg.s3Client.PutObject(
 		r.Context(),
@@ -110,9 +126,9 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	url := fmt.Sprintf("https://%s.s3.%s.amazonaws.com/%s", cfg.s3Bucket, cfg.s3Region, fileKey)
-	video.VideoURL = &url
+	videoDetails.VideoURL = &url
 
-	if err = cfg.db.UpdateVideo(video); err != nil {
+	if err = cfg.db.UpdateVideo(videoDetails); err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Unable to update the database's video url", err)
 		return
 	}
