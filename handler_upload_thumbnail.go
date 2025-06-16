@@ -50,14 +50,10 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	mediaTypeStr := header.Header.Get("Content-Type")
-	if mediaTypeStr == "" {
-		respondWithError(w, http.StatusBadRequest, "Missing Content-Type for thumbnail", nil)
-		return
-	}
-
-	mediaType, _, err := mime.ParseMediaType(mediaTypeStr)
-	if (err != nil) || (mediaType != "image/png" && mediaType != "image/jpeg") {
+	mediaType, _, err := mime.ParseMediaType(header.Header.Get("Content-Type"))
+	isPNG := mediaType == "image/png"
+	isJPEG := mediaType == "image/jpeg"
+	if (err != nil) || (!isPNG && !isJPEG) {
 		respondWithError(w, http.StatusBadRequest, "Malformed/incorrect media type", err)
 		return
 	}
