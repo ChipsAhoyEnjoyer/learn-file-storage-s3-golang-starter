@@ -3,32 +3,35 @@ package video
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math"
 	"os/exec"
 )
 
 func getVideoAspectRatio(filePath string) (string, error) {
-	command := "ffprobe"
-	cmd := exec.Command(command, "-v", "error", "-print_format", "json", "-show_streams", filePath)
-	stdout := new(bytes.Buffer)
-	cmd.Stdout = stdout
-
-	err := cmd.Run()
-	if err != nil {
-		return "", err
+	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
+	var out bytes.Buffer
+	var e bytes.Buffer
+	cmd.Stdout = &out
+	cmd.Stderr = &e
+	log.Println(cmd.String())
+	if err := cmd.Run(); err != nil {
+		return "", fmt.Errorf("ffprobe error: %v - std err: %v", err, e.String())
 	}
 
 	data := &struct {
-		Height int `json:"height"`
-		Width  int `json:"width"`
+		Streams []struct {
+			Height int `json:"height"`
+			Width  int `json:"width"`
+		} `json:"streams"`
 	}{}
-	decoder := json.NewDecoder(stdout)
-	if err = decoder.Decode(data); err != nil {
+
+	decoder := json.NewDecoder(&out)
+	if err := decoder.Decode(data); err != nil {
 		return "", err
 	}
-	log.Println(stdout)
-	ratio := float64(data.Width) / float64(data.Height)
+	ratio := float64(data.Streams[0].Width) / float64(data.Streams[0].Height)
 	epsilon := 0.1
 	aspectRatio := "other"
 	if math.Abs((16.0/9.0)-ratio) < epsilon {

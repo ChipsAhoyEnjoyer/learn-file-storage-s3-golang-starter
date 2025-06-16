@@ -17,7 +17,7 @@ func Test_getVideoAspectRatio(t *testing.T) {
 		{
 			name: "Get Aspect Ratio",
 			args: args{
-				filePath: "./internal/video/test_video.mp4",
+				filePath: "test_video.mp4",
 			},
 			want:    "16:9",
 			wantErr: false,
@@ -27,7 +27,6 @@ func Test_getVideoAspectRatio(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := getVideoAspectRatio(tt.args.filePath)
 			if (err != nil) != tt.wantErr {
-				t.Log(err)
 				t.Errorf("getVideoAspectRatio() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
