@@ -15,12 +15,28 @@ func Test_getVideoAspectRatio(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name: "Get Aspect Ratio",
+			name: "Get Aspect Ratio 16:9",
 			args: args{
-				filePath: "test_video.mp4",
+				filePath: "test_video_horizontal.mp4",
 			},
 			want:    "16:9",
 			wantErr: false,
+		},
+		{
+			name: "Get Aspect Ratio 9:16",
+			args: args{
+				filePath: "test_video_vertical.mp4",
+			},
+			want:    "9:16",
+			wantErr: false,
+		},
+		{
+			name: "Get Aspect Ratio No Video",
+			args: args{
+				filePath: "non_existent_video.mp4",
+			},
+			want:    "",
+			wantErr: true,
 		},
 	}
 	for _, tt := range tests {
