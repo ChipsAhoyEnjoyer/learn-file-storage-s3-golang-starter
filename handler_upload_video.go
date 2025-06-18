@@ -97,7 +97,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	}
 	ratio, err := video.GetVideoAspectRatio(temp.Name())
 	if err != nil {
-		respondWithError(w, http.StatusBadRequest, "Unable to get video aspect ratio", err)
+		respondWithError(w, http.StatusInternalServerError, "Unable to get video aspect ratio", err)
 		return
 	}
 	fileKeyPrefix := ""
@@ -108,6 +108,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		fileKeyPrefix = "portrait"
 	default:
 		fileKeyPrefix = "other"
+	}
+
+	processedVideoFilePath, err := video.ProcessVideoForFastStart(temp.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Unable to convert video to fast start", err)
+		return
 	}
 
 	fileKey := fileKeyPrefix + "/" + base64.RawURLEncoding.EncodeToString(b) + "." + ext
